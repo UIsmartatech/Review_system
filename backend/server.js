@@ -333,7 +333,7 @@ app.get('/profile/image', authenticateToken, (req, res) => {
         return res.status(404).send('Profile image not found');
       }
     
-      res.send({ imageUrl: `http://localhost:8081/public/images/${image}` });
+      res.send({ imageUrl: `http://192.168.1.133:3000/public/images/${image}` });
     } else {
       res.status(404).send('Profile image not found');
     }

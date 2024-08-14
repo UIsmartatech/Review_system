@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import SidebarComponent from "../sidebar/sidebar";
 import Card from "react-bootstrap/Card";
-import * as Icons from "@mui/icons-material";
-import IMAGES from "../../Assets/profile_img/profile_images";
 import "./profileSetting.css";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
@@ -20,10 +18,13 @@ function ProfileSetting() {
   const [joinDate, setJoinDate] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState(null);
   const [message, setMessage] = useState("");
+  const [users, setUsers] = useState([""]);
+  const token = sessionStorage.getItem("token");
 
   const handleInputChange = (event) => {
+    
     const { name, value } = event.target;
-    if (name === "name") {
+    if (name === "username") {
       setName(value);
     } else if (name === "email") {
       setEmail(value);
@@ -43,7 +44,8 @@ function ProfileSetting() {
     setImage(event.target.files[0]);
   };
 
-  const handleFileUpload = () => {
+  const handleFileUpload = (event) => {
+    event.preventDefault();
     const token = sessionStorage.getItem("token");
     if (token) {
       const decoded = jwtDecode(token);
@@ -55,7 +57,7 @@ function ProfileSetting() {
     formData.append("image", Image);
 
     axios
-      .post("http://localhost:8081/upload", formData, {
+      .post("http://192.168.1.133:3000/upload", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -81,14 +83,21 @@ function ProfileSetting() {
     event.preventDefault();
     const profileData = { name, email, mobile, designation, joinDate };
     axios
-      .post("http://localhost:8081/personal-profile-insert", profileData)
+      .post("http://192.168.1.133:3000/personal-profile-insert", profileData)
       .then((res) => {
         if (res.data.Status === "success") {
-          console.log("succeed");
+          setMessage(`Profile added successfully`);
           setMessage("successfull attempt");
         } else {
           console.log("failed");
           setMessage("unsuccessfull attempt");
+        }
+      })
+      .catch(err => {
+        if (err.response && err.response.status === 409) {
+          setMessage('Profile already exists');
+        } else {
+          setMessage('Error adding profile');
         }
       });
   };
@@ -106,20 +115,33 @@ function ProfileSetting() {
       console.error("no token found");
     }
     axios
-      .get("http://localhost:8081/profile/image", {
+      .get("http://192.168.1.133:3000/profile/image", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
       .then((response) => {
         const imageUrl = response.data.imageUrl;
+        console.log(imageUrl);
         setProfileImageUrl(imageUrl);
       })
       .catch((error) => {
         console.error("Error fetching profile image:", error);
       });
   };
-  
+  useEffect(() => {
+    axios
+      .get("http://192.168.1.133:3000/profilepagedata", {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      })
+      .then((response) => {
+        const userdata = response.data;
+        setUsers(userdata);
+        console.log(userdata);
+      });
+    }, []);
 
   return (
     <>
@@ -127,10 +149,11 @@ function ProfileSetting() {
         <div className="sidebar">
           <SidebarComponent />
         </div>
+        {users && (
         <div className="mainContent">
           <div className="welcome-section">
             <div className="wecome-text">
-              <h5> Edit your profile details </h5>
+              <h5> Profile details </h5>
             </div>
             <div className="profile-part">
               <p>{name}</p>
@@ -142,10 +165,11 @@ function ProfileSetting() {
             </div>
           </div>
           <div className=" employ-detail-panel">
+          {users.map((user) => (
             <Card>
               <div className="profile-upload-panel">
-                <div className="employ-img-edit" onClick={handleImgClick}>
-                  <div className="profileSection">
+                <div className="employ-img-edit" >
+                  <div className="profileSection" onClick={handleImgClick}>
                     {Image ? (
                       <img
                         src={profileImageUrl}
@@ -167,27 +191,28 @@ function ProfileSetting() {
                       className="d-none"
                     />
                   </div>
-                </div>
-                <div className="button-group">
+                  <div className="button-group">
                   <Button
                     as="input"
                     type="button"
-                    value="update profile"
-                    className="mt-1 d-block"
+                    value="upload picture"
+                    className="mt-1 d-block btn-theme"
                     onClick={handleFileUpload}
                   />
                   {message && <p>{message}</p>}
                 </div>
+                </div>
+
               </div>
               <Form className="profile-container">
                 <Form.Group className="mb-3" controlId="formName">
                   <Form.Label>Your Name</Form.Label>
                   <Form.Control
                     type="text"
-                    name="name"
+                    name="username"
                     placeholder="Your full name"
-                    value={name}
-                    onChange={handleInputChange}
+                    value={user.username}
+                    onChange={handleInputChange} disabled
                   />
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="formEmail">
@@ -196,8 +221,9 @@ function ProfileSetting() {
                     type="email"
                     name="email"
                     placeholder="name@example.com"
-                    value={email}
+                    value={user.email}
                     onChange={handleInputChange}
+                    disabled
                   />
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="formMobile">
@@ -206,8 +232,9 @@ function ProfileSetting() {
                     type="text"
                     name="mobile"
                     placeholder="+91 0000 00 0000"
-                    value={mobile}
+                    value={user.mobile_no}
                     onChange={handleInputChange}
+                    disabled
                   />
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="formDesignation">
@@ -216,32 +243,37 @@ function ProfileSetting() {
                     type="text"
                     name="designation"
                     placeholder="Please enter designation"
-                    value={designation}
+                    value={user.designation}
                     onChange={handleInputChange}
+                    disabled
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formJoinDate">
+                 <Form.Group className="mb-3" controlId="formJoinDate">
                   <Form.Label>Join date</Form.Label>
                   <Form.Control
-                    type="date"
+                    type="text"
                     name="joinDate"
-                    value={joinDate}
+                    value={user.join_date}
                     onChange={handleInputChange}
+                    disabled
                   />
                 </Form.Group>
-                <div className="button-group">
-                  <Button
+                <div className="button-group btn-theme">
+                  {/* <Button
                     as="input"
                     type="button"
                     value="Update Details"
-                    className="mt-2 d-block"
+                    className="mt-2 .button-group btn-theme d-block"
                     onClick={handleProfile}
-                  />
+                  /> */}
                 </div>
               </Form>
+              {message && <p>{message}</p>}
             </Card>
+           ))}
           </div>
         </div>
+        )}
       </div>
     </>
   );
